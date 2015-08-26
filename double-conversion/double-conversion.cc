@@ -390,9 +390,8 @@ void DoubleToStringConverter::DoubleToAscii(float v,
 
 // Consumes the given substring from the iterator.
 // Returns false, if the substring does not match.
-template <class Iterator>
-static bool ConsumeSubString(Iterator* current,
-                             Iterator end,
+static bool ConsumeSubString(const char** current,
+                             const char* end,
                              const char* substring) {
   ASSERT(**current == *substring);
   for (substring++; *substring != '\0'; substring++) {
@@ -440,8 +439,8 @@ static bool isWhitespace(int x) {
 
 
 // Returns true if a nonspace found and false if the end has reached.
-template <class Iterator>
-static inline bool AdvanceToNonspace(Iterator* current, Iterator end) {
+static inline bool AdvanceToNonspace(const char** current,
+                                     const char* end) {
   while (*current != end) {
     if (!isWhitespace(**current)) return true;
     ++*current;
@@ -450,174 +449,56 @@ static inline bool AdvanceToNonspace(Iterator* current, Iterator end) {
 }
 
 
-static bool isDigit(int x, int radix) {
-  return (x >= '0' && x <= '9' && x < '0' + radix)
-      || (radix > 10 && x >= 'a' && x < 'a' + radix - 10)
-      || (radix > 10 && x >= 'A' && x < 'A' + radix - 10);
-}
-
-
 static float SignedZero(bool sign) {
   return sign ? -0.0 : 0.0;
 }
 
 
-// Returns true if 'c' is a decimal digit that is valid for the given radix.
-//
-// The function is small and could be inlined, but VS2012 emitted a warning
-// because it constant-propagated the radix and concluded that the last
-// condition was always true. By moving it into a separate function the
-// compiler wouldn't warn anymore.
-#if _MSC_VER
-#pragma optimize("",off)
-static bool IsDecimalDigitForRadix(int c, int radix) {
-  return '0' <= c && c <= '9' && (c - '0') < radix;
-}
-#pragma optimize("",on)
-#else
-static bool inline IsDecimalDigitForRadix(int c, int radix) {
-	return '0' <= c && c <= '9' && (c - '0') < radix;
-}
-#endif
-// Returns true if 'c' is a character digit that is valid for the given radix.
-// The 'a_character' should be 'a' or 'A'.
-//
-// The function is small and could be inlined, but VS2012 emitted a warning
-// because it constant-propagated the radix and concluded that the first
-// condition was always false. By moving it into a separate function the
-// compiler wouldn't warn anymore.
-static bool IsCharacterDigitForRadix(int c, int radix, char a_character) {
-  return radix > 10 && c >= a_character && c < a_character + radix - 10;
-}
-
-
-// Parsing integers with radix 2, 4, 8, 16, 32. Assumes current != end.
-template <int radix_log_2, class Iterator>
-static float RadixStringToIeee(Iterator* current,
-                                Iterator end,
-                                bool sign,
-                                bool allow_trailing_junk,
-                                float junk_string_value,
-                                bool read_as_double,
-                                bool* result_is_junk) {
-  ASSERT(*current != end);
-  ASSERT(!read_as_double);
-
-  const int kSingleSize = Single::kSignificandSize;
-  const int kSignificandSize = kSingleSize;
-
-  *result_is_junk = true;
-
-  // Skip leading 0s.
-  while (**current == '0') {
-    ++(*current);
-    if (*current == end) {
-      *result_is_junk = false;
-      return SignedZero(sign);
-    }
-  }
-
-  int64_t number = 0;
-  int exponent = 0;
-  const int radix = (1 << radix_log_2);
-
-  do {
-    int digit;
-    if (IsDecimalDigitForRadix(**current, radix)) {
-      digit = static_cast<char>(**current) - '0';
-    } else if (IsCharacterDigitForRadix(**current, radix, 'a')) {
-      digit = static_cast<char>(**current) - 'a' + 10;
-    } else if (IsCharacterDigitForRadix(**current, radix, 'A')) {
-      digit = static_cast<char>(**current) - 'A' + 10;
-    } else {
-      if (allow_trailing_junk || !AdvanceToNonspace(current, end)) {
-        break;
-      } else {
-        return junk_string_value;
-      }
-    }
-
-    number = number * radix + digit;
-    int overflow = static_cast<int>(number >> kSignificandSize);
-    if (overflow != 0) {
-      // Overflow occurred. Need to determine which direction to round the
-      // result.
-      int overflow_bits_count = 1;
-      while (overflow > 1) {
-        overflow_bits_count++;
-        overflow >>= 1;
-      }
-
-      int dropped_bits_mask = ((1 << overflow_bits_count) - 1);
-      int dropped_bits = static_cast<int>(number) & dropped_bits_mask;
-      number >>= overflow_bits_count;
-      exponent = overflow_bits_count;
-
-      bool zero_tail = true;
-      for (;;) {
-        ++(*current);
-        if (*current == end || !isDigit(**current, radix)) break;
-        zero_tail = zero_tail && **current == '0';
-        exponent += radix_log_2;
-      }
-
-      if (!allow_trailing_junk && AdvanceToNonspace(current, end)) {
-        return junk_string_value;
-      }
-
-      int middle_value = (1 << (overflow_bits_count - 1));
-      if (dropped_bits > middle_value) {
-        number++;  // Rounding up.
-      } else if (dropped_bits == middle_value) {
-        // Rounding to even to consistency with decimals: half-way case rounds
-        // up if significant part is odd and down otherwise.
-        if ((number & 1) != 0 || !zero_tail) {
-          number++;  // Rounding up.
-        }
-      }
-
-      // Rounding up may cause overflow.
-      if ((number & ((int64_t)1 << kSignificandSize)) != 0) {
-        exponent++;
-        number >>= 1;
-      }
-      break;
-    }
-    ++(*current);
-  } while (*current != end);
-
-  ASSERT(number < ((int64_t)1 << kSignificandSize));
-
-  *result_is_junk = false;
-
-  if (exponent == 0) {
-    if (sign) {
-      if (number == 0) return -0.0;
-      number = -number;
-    }
-    return static_cast<float>(number);
-  }
-
-  ASSERT(number != 0);
-  return Single(DiyFp(number, exponent)).value();
-}
-
-
 template <class Iterator>
-float StringToDoubleConverter::StringToIeee(
+double StringToDoubleConverter::StringToIeee(
     Iterator input,
     int length,
     bool read_as_double,
     int* processed_characters_count) const {
+  // The longest form of simplified number is: "-<significant digits>.1eXXX\0".
+  const int kBufferSize = kMaxSignificantDigits + 10;
+  char buffer[kBufferSize];  // NOLINT: size is known at compile time.
+
   Iterator current = input;
   Iterator end = input + length;
+  int i = 0;
+  while (current != end) {
+    if (*current < 256) {
+      buffer[i++] = static_cast<char>(*current);
+    } else {
+      buffer[i++] = 255;  // invalid character.
+    }
+    ++current;
+  }
+  return StringToIeeeOnAsciiBuffer(
+    buffer, length, read_as_double, processed_characters_count);
+}
+
+double __attribute__((noinline))
+StringToDoubleConverter::StringToIeeeOnAsciiBuffer(
+    char* buffer,
+    int length,
+    bool read_as_double,
+    int* processed_characters_count) const {
+  const char* input = buffer;
+  const char* current = input;
+  const char* end = input + length;
+  // We are reusing the buffer that we get as input. Therefore the buffer_pos
+  // must always be behind the current (as we would otherwise overwrite unread
+  // data).
+  int buffer_pos = 0;
 
   *processed_characters_count = 0;
 
-  const bool allow_trailing_junk = (flags_ & ALLOW_TRAILING_JUNK) != 0;
-  const bool allow_leading_spaces = (flags_ & ALLOW_LEADING_SPACES) != 0;
-  const bool allow_trailing_spaces = (flags_ & ALLOW_TRAILING_SPACES) != 0;
-  const bool allow_spaces_after_sign = (flags_ & ALLOW_SPACES_AFTER_SIGN) != 0;
+  ASSERT(flags_ == NO_FLAGS);
+  const bool allow_trailing_junk = false;
+  const bool allow_trailing_spaces = false;
+  const bool allow_spaces_after_sign = false;
 
   // To make sure that iterator dereferencing is valid the following
   // convention is used:
@@ -628,22 +509,6 @@ float StringToDoubleConverter::StringToIeee(
   // 4. 'current' is not dereferenced after the 'parsing_done' label.
   // 5. Code before 'parsing_done' may rely on 'current != end'.
   if (current == end) return empty_string_value_;
-
-  if (allow_leading_spaces || allow_trailing_spaces) {
-    if (!AdvanceToNonspace(&current, end)) {
-      *processed_characters_count = static_cast<int>(current - input);
-      return empty_string_value_;
-    }
-    if (!allow_leading_spaces && (input != current)) {
-      // No leading spaces allowed, but AdvanceToNonspace moved forward.
-      return junk_string_value_;
-    }
-  }
-
-  // The longest form of simplified number is: "-<significant digits>.1eXXX\0".
-  const int kBufferSize = kMaxSignificantDigits + 10;
-  char buffer[kBufferSize];  // NOLINT: size is known at compile time.
-  int buffer_pos = 0;
 
   // Exponent will be adjusted if insignificant digits of the integer part
   // or insignificant leading zeros of the fractional part are dropped.
@@ -657,7 +522,7 @@ float StringToDoubleConverter::StringToIeee(
   if (*current == '+' || *current == '-') {
     sign = (*current == '-');
     ++current;
-    Iterator next_non_space = current;
+    const char* next_non_space = current;
     // Skip following spaces (if allowed).
     if (!AdvanceToNonspace(&next_non_space, end)) return junk_string_value_;
     if (!allow_spaces_after_sign && (current != next_non_space)) {
@@ -714,28 +579,6 @@ float StringToDoubleConverter::StringToIeee(
 
     leading_zero = true;
 
-    // It could be hexadecimal value.
-    if ((flags_ & ALLOW_HEX) && (*current == 'x' || *current == 'X')) {
-      ++current;
-      if (current == end || !isDigit(*current, 16)) {
-        return junk_string_value_;  // "0x".
-      }
-
-      bool result_is_junk;
-      float result = RadixStringToIeee<4>(&current,
-                                           end,
-                                           sign,
-                                           allow_trailing_junk,
-                                           junk_string_value_,
-                                           read_as_double,
-                                           &result_is_junk);
-      if (!result_is_junk) {
-        if (allow_trailing_spaces) AdvanceToNonspace(&current, end);
-        *processed_characters_count = static_cast<int>(current - input);
-      }
-      return result;
-    }
-
     // Ignore leading zeros in the integer part.
     while (*current == '0') {
       ++current;
@@ -746,12 +589,10 @@ float StringToDoubleConverter::StringToIeee(
     }
   }
 
-  bool octal = leading_zero && (flags_ & ALLOW_OCTALS) != 0;
-
   // Copy significant digits of the integer part (if any) to the buffer.
   while (*current >= '0' && *current <= '9') {
     if (significant_digits < kMaxSignificantDigits) {
-      ASSERT(buffer_pos < kBufferSize);
+      ASSERT(buffer_pos < length);
       buffer[buffer_pos++] = static_cast<char>(*current);
       significant_digits++;
       // Will later check if it's an octal in the buffer.
@@ -759,19 +600,11 @@ float StringToDoubleConverter::StringToIeee(
       insignificant_digits++;  // Move the digit into the exponential part.
       nonzero_digit_dropped = nonzero_digit_dropped || *current != '0';
     }
-    octal = octal && *current < '8';
     ++current;
     if (current == end) goto parsing_done;
   }
 
-  if (significant_digits == 0) {
-    octal = false;
-  }
-
   if (*current == '.') {
-    if (octal && !allow_trailing_junk) return junk_string_value_;
-    if (octal) goto parsing_done;
-
     ++current;
     if (current == end) {
       if (significant_digits == 0 && !leading_zero) {
@@ -799,7 +632,7 @@ float StringToDoubleConverter::StringToIeee(
     // We don't emit a '.', but adjust the exponent instead.
     while (*current >= '0' && *current <= '9') {
       if (significant_digits < kMaxSignificantDigits) {
-        ASSERT(buffer_pos < kBufferSize);
+        ASSERT(buffer_pos < length);
         buffer[buffer_pos++] = static_cast<char>(*current);
         significant_digits++;
         exponent--;
@@ -822,8 +655,6 @@ float StringToDoubleConverter::StringToIeee(
 
   // Parse exponential part.
   if (*current == 'e' || *current == 'E') {
-    if (octal && !allow_trailing_junk) return junk_string_value_;
-    if (octal) goto parsing_done;
     ++current;
     if (current == end) {
       if (allow_trailing_junk) {
@@ -884,22 +715,6 @@ float StringToDoubleConverter::StringToIeee(
   parsing_done:
   exponent += insignificant_digits;
 
-  if (octal) {
-    float result;
-    bool result_is_junk;
-    char* start = buffer;
-    result = RadixStringToIeee<3>(&start,
-                                  buffer + buffer_pos,
-                                  sign,
-                                  allow_trailing_junk,
-                                  junk_string_value_,
-                                  read_as_double,
-                                  &result_is_junk);
-    ASSERT(!result_is_junk);
-    *processed_characters_count = static_cast<int>(current - input);
-    return result;
-  }
-
   if (nonzero_digit_dropped) {
     buffer[buffer_pos++] = '1';
     exponent--;
@@ -923,7 +738,7 @@ float StringToDoubleConverter::StringToIeee(
     }
   }
 
-  ASSERT(buffer_pos < kBufferSize);
+  ASSERT(buffer_pos <= length);
   buffer[buffer_pos] = '\0';
 
   float converted;
