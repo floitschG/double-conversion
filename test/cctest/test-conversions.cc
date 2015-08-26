@@ -11,7 +11,7 @@
 
 using namespace double_conversion;
 
-
+/*
 TEST(DoubleToShortest) {
   const int kBufferSize = 128;
   char buffer[kBufferSize];
@@ -166,7 +166,7 @@ TEST(DoubleToShortest) {
   CHECK(dc6.ToShortest(-Double::NaN(), &builder));
   CHECK_EQ("NaN", builder.Finalize());
 }
-
+*/
 
 TEST(DoubleToShortestSingle) {
   const int kBufferSize = 128;

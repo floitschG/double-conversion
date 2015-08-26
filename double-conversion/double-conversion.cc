@@ -159,7 +159,7 @@ bool DoubleToStringConverter::ToShortestIeeeNumber(
     float value,
     StringBuilder* result_builder,
     DoubleToStringConverter::DtoaMode mode) const {
-  ASSERT(mode == SHORTEST || mode == SHORTEST_SINGLE);
+  ASSERT(mode == SHORTEST_SINGLE);
   if (Single(value).IsSpecial()) {
     return HandleSpecialValues(value, result_builder);
   }
@@ -249,7 +249,7 @@ bool DoubleToStringConverter::ToExponential(
   int decimal_rep_length;
 
   if (requested_digits == -1) {
-    DoubleToAscii(value, SHORTEST, 0,
+    DoubleToAscii(value, SHORTEST_SINGLE, 0,
                   decimal_rep, kDecimalRepCapacity,
                   &sign, &decimal_rep_length, &decimal_point);
   } else {
@@ -357,8 +357,8 @@ void DoubleToStringConverter::DoubleToAscii(float v,
                                             int* length,
                                             int* point) {
   Vector<char> vector(buffer, buffer_length);
-  ASSERT(!Double(v).IsSpecial());
-  ASSERT(mode == SHORTEST || mode == SHORTEST_SINGLE || requested_digits >= 0);
+  ASSERT(!Single(v).IsSpecial());
+  ASSERT(mode == SHORTEST_SINGLE || requested_digits >= 0);
 
   if (Single(v).Sign() < 0) {
     *sign = true;
@@ -455,7 +455,7 @@ static float SignedZero(bool sign) {
 
 
 template <class Iterator>
-double StringToDoubleConverter::StringToIeee(
+float StringToDoubleConverter::StringToIeee(
     Iterator input,
     int length,
     bool read_as_double,
@@ -479,8 +479,8 @@ double StringToDoubleConverter::StringToIeee(
     buffer, length, read_as_double, processed_characters_count);
 }
 
-double __attribute__((noinline))
-StringToDoubleConverter::StringToIeeeOnAsciiBuffer(
+
+float StringToDoubleConverter::StringToIeeeOnAsciiBuffer(
     char* buffer,
     int length,
     bool read_as_double,

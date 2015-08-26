@@ -41,7 +41,6 @@ using namespace double_conversion;
 
 
 enum DtoaMode {
-  SHORTEST,
   SHORTEST_SINGLE,
   FIXED,
   PRECISION
@@ -50,9 +49,9 @@ enum DtoaMode {
 static void DoubleToAscii(double v, DtoaMode test_mode, int requested_digits,
                           Vector<char> buffer, bool* sign, int* length,
                           int* point) {
-  DoubleToStringConverter::DtoaMode mode = DoubleToStringConverter::SHORTEST;
+  DoubleToStringConverter::DtoaMode mode =
+      DoubleToStringConverter::SHORTEST_SINGLE;
   switch (test_mode) {
-    case SHORTEST: mode = DoubleToStringConverter::SHORTEST; break;
     case SHORTEST_SINGLE:
         mode = DoubleToStringConverter::SHORTEST_SINGLE;
         break;
@@ -85,10 +84,6 @@ TEST(DtoaVariousDoubles) {
   int point;
   bool sign;
 
-  DoubleToAscii(0.0, SHORTEST, 0, buffer, &sign, &length, &point);
-  CHECK_EQ("0", buffer.start());
-  CHECK_EQ(1, point);
-
   DoubleToAscii(0.0f, SHORTEST_SINGLE, 0, buffer, &sign, &length, &point);
   CHECK_EQ("0", buffer.start());
   CHECK_EQ(1, point);
@@ -101,10 +96,6 @@ TEST(DtoaVariousDoubles) {
   DoubleToAscii(0.0, PRECISION, 3, buffer, &sign, &length, &point);
   CHECK_EQ(1, length);
   CHECK_EQ("0", buffer.start());
-  CHECK_EQ(1, point);
-
-  DoubleToAscii(1.0, SHORTEST, 0, buffer, &sign, &length, &point);
-  CHECK_EQ("1", buffer.start());
   CHECK_EQ(1, point);
 
   DoubleToAscii(1.0f, SHORTEST_SINGLE, 0, buffer, &sign, &length, &point);
@@ -121,10 +112,6 @@ TEST(DtoaVariousDoubles) {
   CHECK_GE(3, length);
   TrimRepresentation(buffer);
   CHECK_EQ("1", buffer.start());
-  CHECK_EQ(1, point);
-
-  DoubleToAscii(1.5, SHORTEST, 0, buffer, &sign, &length, &point);
-  CHECK_EQ("15", buffer.start());
   CHECK_EQ(1, point);
 
   DoubleToAscii(1.5f, SHORTEST_SINGLE, 0, buffer, &sign, &length, &point);
@@ -144,10 +131,6 @@ TEST(DtoaVariousDoubles) {
   CHECK_EQ(1, point);
 
   double min_double = 5e-324;
-  DoubleToAscii(min_double, SHORTEST, 0, buffer, &sign, &length, &point);
-  CHECK_EQ("5", buffer.start());
-  CHECK_EQ(-323, point);
-
   float min_float = 1e-45f;
   DoubleToAscii(min_float, SHORTEST_SINGLE, 0, buffer, &sign, &length, &point);
   CHECK_EQ("1", buffer.start());
@@ -166,10 +149,6 @@ TEST(DtoaVariousDoubles) {
   CHECK_EQ(-323, point);
 
   double max_double = 1.7976931348623157e308;
-  DoubleToAscii(max_double, SHORTEST, 0, buffer, &sign, &length, &point);
-  CHECK_EQ("17976931348623157", buffer.start());
-  CHECK_EQ(309, point);
-
   float max_float = 3.4028234e38f;
   DoubleToAscii(max_float, SHORTEST_SINGLE, 0,
                 buffer, &sign, &length, &point);
@@ -181,10 +160,6 @@ TEST(DtoaVariousDoubles) {
   TrimRepresentation(buffer);
   CHECK_EQ("1797693", buffer.start());
   CHECK_EQ(309, point);
-
-  DoubleToAscii(4294967272.0, SHORTEST, 0, buffer, &sign, &length, &point);
-  CHECK_EQ("4294967272", buffer.start());
-  CHECK_EQ(10, point);
 
   DoubleToAscii(4294967272.0f, SHORTEST_SINGLE, 0, buffer, &sign, &length, &point);
   CHECK_EQ("42949673", buffer.start());
@@ -203,11 +178,6 @@ TEST(DtoaVariousDoubles) {
   CHECK_EQ("4294967272", buffer.start());
   CHECK_EQ(10, point);
 
-  DoubleToAscii(4.1855804968213567e298, SHORTEST, 0,
-                buffer, &sign, &length, &point);
-  CHECK_EQ("4185580496821357", buffer.start());
-  CHECK_EQ(299, point);
-
   DoubleToAscii(4.1855804968213567e298, PRECISION, 20,
                 buffer, &sign, &length, &point);
   CHECK_GE(20, length);
@@ -215,23 +185,12 @@ TEST(DtoaVariousDoubles) {
   CHECK_EQ("41855804968213567225", buffer.start());
   CHECK_EQ(299, point);
 
-  DoubleToAscii(5.5626846462680035e-309, SHORTEST, 0,
-                buffer, &sign, &length, &point);
-  CHECK_EQ("5562684646268003", buffer.start());
-  CHECK_EQ(-308, point);
-
   DoubleToAscii(5.5626846462680035e-309, PRECISION, 1,
                 buffer, &sign, &length, &point);
   CHECK_GE(1, length);
   TrimRepresentation(buffer);
   CHECK_EQ("6", buffer.start());
   CHECK_EQ(-308, point);
-
-  DoubleToAscii(-2147483648.0, SHORTEST, 0,
-                buffer, &sign, &length, &point);
-  CHECK_EQ(1, sign);
-  CHECK_EQ("2147483648", buffer.start());
-  CHECK_EQ(10, point);
 
   DoubleToAscii(-2147483648.0, SHORTEST_SINGLE, 0,
                 buffer, &sign, &length, &point);
@@ -255,12 +214,6 @@ TEST(DtoaVariousDoubles) {
   CHECK_EQ("21475", buffer.start());
   CHECK_EQ(10, point);
 
-  DoubleToAscii(-3.5844466002796428e+298, SHORTEST, 0,
-                buffer, &sign, &length, &point);
-  CHECK_EQ(1, sign);
-  CHECK_EQ("35844466002796428", buffer.start());
-  CHECK_EQ(299, point);
-
   DoubleToAscii(-3.5844466002796428e+298, PRECISION, 10,
                 buffer, &sign, &length, &point);
   CHECK_EQ(1, sign);
@@ -269,29 +222,11 @@ TEST(DtoaVariousDoubles) {
   CHECK_EQ("35844466", buffer.start());
   CHECK_EQ(299, point);
 
-  uint64_t smallest_normal64 = UINT64_2PART_C(0x00100000, 00000000);
-  double v = Double(smallest_normal64).value();
-  DoubleToAscii(v, SHORTEST, 0, buffer, &sign, &length, &point);
-  CHECK_EQ("22250738585072014", buffer.start());
-  CHECK_EQ(-307, point);
-
   uint32_t smallest_normal32 = 0x00800000;
   float f = Single(smallest_normal32).value();
   DoubleToAscii(f, SHORTEST_SINGLE, 0, buffer, &sign, &length, &point);
   CHECK_EQ("11754944", buffer.start());
   CHECK_EQ(-37, point);
-
-  DoubleToAscii(v, PRECISION, 20, buffer, &sign, &length, &point);
-  CHECK_GE(20, length);
-  TrimRepresentation(buffer);
-  CHECK_EQ("22250738585072013831", buffer.start());
-  CHECK_EQ(-307, point);
-
-  uint64_t largest_denormal64 = UINT64_2PART_C(0x000FFFFF, FFFFFFFF);
-  v = Double(largest_denormal64).value();
-  DoubleToAscii(v, SHORTEST, 0, buffer, &sign, &length, &point);
-  CHECK_EQ("2225073858507201", buffer.start());
-  CHECK_EQ(-307, point);
 
   uint32_t largest_denormal32 = 0x007FFFFF;
   f = Single(largest_denormal32).value();
@@ -299,27 +234,11 @@ TEST(DtoaVariousDoubles) {
   CHECK_EQ("11754942", buffer.start());
   CHECK_EQ(-37, point);
 
-  DoubleToAscii(v, PRECISION, 20, buffer, &sign, &length, &point);
-  CHECK_GE(20, length);
-  TrimRepresentation(buffer);
-  CHECK_EQ("2225073858507200889", buffer.start());
-  CHECK_EQ(-307, point);
-
-  DoubleToAscii(4128420500802942e-24, SHORTEST, 0,
-                buffer, &sign, &length, &point);
-  CHECK_EQ(0, sign);
-  CHECK_EQ("4128420500802942", buffer.start());
-  CHECK_EQ(-8, point);
-
-  v = -3.9292015898194142585311918e-10;
-  DoubleToAscii(v, SHORTEST, 0, buffer, &sign, &length, &point);
-  CHECK_EQ("39292015898194143", buffer.start());
-
   f = -3.9292015898194142585311918e-10f;
   DoubleToAscii(f, SHORTEST_SINGLE, 0, buffer, &sign, &length, &point);
   CHECK_EQ("39292017", buffer.start());
 
-  v = 4194304.0;
+  double v = 4194304.0;
   DoubleToAscii(v, FIXED, 5, buffer, &sign, &length, &point);
   CHECK_GE(5, length - point);
   TrimRepresentation(buffer);
@@ -340,18 +259,6 @@ TEST(DtoaSign) {
   bool sign;
   int length;
   int point;
-
-  DoubleToAscii(0.0, SHORTEST, 0, buffer, &sign, &length, &point);
-  CHECK(!sign);
-
-  DoubleToAscii(-0.0, SHORTEST, 0, buffer, &sign, &length, &point);
-  CHECK(sign);
-
-  DoubleToAscii(1.0, SHORTEST, 0, buffer, &sign, &length, &point);
-  CHECK(!sign);
-
-  DoubleToAscii(-1.0, SHORTEST, 0, buffer, &sign, &length, &point);
-  CHECK(sign);
 
   DoubleToAscii(0.0f, SHORTEST_SINGLE, 0, buffer, &sign, &length, &point);
   CHECK(!sign);
@@ -417,26 +324,6 @@ TEST(DtoaCorners) {
   CHECK_EQ(1, length);
   CHECK_EQ("1", buffer.start());
   CHECK(!sign);
-}
-
-
-TEST(DtoaGayShortest) {
-  char buffer_container[kBufferSize];
-  Vector<char> buffer(buffer_container, kBufferSize);
-  bool sign;
-  int length;
-  int point;
-
-  Vector<const PrecomputedShortest> precomputed =
-      PrecomputedShortestRepresentations();
-  for (int i = 0; i < precomputed.length(); ++i) {
-    const PrecomputedShortest current_test = precomputed[i];
-    double v = current_test.v;
-    DoubleToAscii(v, SHORTEST, 0, buffer, &sign, &length, &point);
-    CHECK(!sign);  // All precomputed numbers are positive.
-    CHECK_EQ(current_test.decimal_point, point);
-    CHECK_EQ(current_test.representation, buffer.start());
-  }
 }
 
 

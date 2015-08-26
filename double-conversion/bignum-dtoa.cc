@@ -93,13 +93,9 @@ void BignumDtoa(float v, BignumDtoaMode mode, int requested_digits,
   uint64_t significand;
   int exponent;
   bool lower_boundary_is_closer;
-  if (mode == BIGNUM_DTOA_SHORTEST_SINGLE) {
-    float f = static_cast<float>(v);
-    ASSERT(f == v);
-    significand = Single(f).Significand();
-    exponent = Single(f).Exponent();
-    lower_boundary_is_closer = Single(f).LowerBoundaryIsCloser();
-  }
+  significand = Single(v).Significand();
+  exponent = Single(v).Exponent();
+  lower_boundary_is_closer = Single(v).LowerBoundaryIsCloser();
   bool need_boundary_deltas = (mode == BIGNUM_DTOA_SHORTEST_SINGLE);
 
   bool is_even = (significand & 1) == 0;
@@ -141,7 +137,6 @@ void BignumDtoa(float v, BignumDtoaMode mode, int requested_digits,
   // We now have v = (numerator / denominator) * 10^(decimal_point-1), and
   //  1 <= (numerator + delta_plus) / denominator < 10
   switch (mode) {
-    case BIGNUM_DTOA_SHORTEST:
     case BIGNUM_DTOA_SHORTEST_SINGLE:
       GenerateShortestDigits(&numerator, &denominator,
                              &delta_minus, &delta_plus,
@@ -402,7 +397,7 @@ static int EstimatePower(int exponent) {
   const double k1Log10 = 0.30102999566398114;  // 1/lg(10)
 
   // For doubles len(f) == 53 (don't forget the hidden bit).
-  const int kSignificandSize = Double::kSignificandSize;
+  const int kSignificandSize = Single::kSignificandSize;
   double estimate = ceil((exponent + kSignificandSize - 1) * k1Log10 - 1e-10);
   return static_cast<int>(estimate);
 }
