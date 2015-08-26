@@ -31,10 +31,7 @@
 #include "double-conversion/double-conversion.h"
 
 #include "double-conversion/bignum-dtoa.h"
-#include "double-conversion/fast-dtoa.h"
-#include "double-conversion/fixed-dtoa.h"
 #include "double-conversion/ieee.h"
-#include "double-conversion/strtod.h"
 #include "double-conversion/utils.h"
 
 namespace double_conversion {
@@ -384,28 +381,6 @@ void DoubleToStringConverter::DoubleToAscii(double v,
     *point = 1;
     return;
   }
-
-  bool fast_worked;
-  switch (mode) {
-    case SHORTEST:
-      fast_worked = FastDtoa(v, FAST_DTOA_SHORTEST, 0, vector, length, point);
-      break;
-    case SHORTEST_SINGLE:
-      fast_worked = FastDtoa(v, FAST_DTOA_SHORTEST_SINGLE, 0,
-                             vector, length, point);
-      break;
-    case FIXED:
-      fast_worked = FastFixedDtoa(v, requested_digits, vector, length, point);
-      break;
-    case PRECISION:
-      fast_worked = FastDtoa(v, FAST_DTOA_PRECISION, requested_digits,
-                             vector, length, point);
-      break;
-    default:
-      fast_worked = false;
-      UNREACHABLE();
-  }
-  if (fast_worked) return;
 
   // If the fast dtoa didn't succeed use the slower bignum version.
   BignumDtoaMode bignum_mode = DtoaToBignumDtoaMode(mode);
@@ -932,14 +907,32 @@ double StringToDoubleConverter::StringToIeee(
     exponent--;
   }
 
+  if (exponent != 0) {
+    buffer[buffer_pos++] = 'e';
+    int remaining_exponent = exponent;
+    if (remaining_exponent < 0) {
+      buffer[buffer_pos++] = '-';
+      remaining_exponent = -remaining_exponent;
+    }
+    int divisor = 1;
+    while (divisor * 10 < exponent) {
+      divisor *= 10;
+    }
+    while (divisor != 0) {
+      buffer[buffer_pos++] = remaining_exponent / divisor;
+      remaining_exponent %= divisor;
+      divisor /= 10;
+    }
+  }
+
   ASSERT(buffer_pos < kBufferSize);
   buffer[buffer_pos] = '\0';
 
   double converted;
   if (read_as_double) {
-    converted = Strtod(Vector<const char>(buffer, buffer_pos), exponent);
+    converted = strtod(buffer, NULL);
   } else {
-    converted = Strtof(Vector<const char>(buffer, buffer_pos), exponent);
+    converted = strtof(buffer, NULL);
   }
   *processed_characters_count = static_cast<int>(current - input);
   return sign? -converted: converted;
