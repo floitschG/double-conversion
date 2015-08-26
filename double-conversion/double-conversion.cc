@@ -391,9 +391,8 @@ void DoubleToStringConverter::DoubleToAscii(double v,
 
 // Consumes the given substring from the iterator.
 // Returns false, if the substring does not match.
-template <class Iterator>
-static bool ConsumeSubString(Iterator* current,
-                             Iterator end,
+static bool ConsumeSubString(const char** current,
+                             const char* end,
                              const char* substring) {
   ASSERT(**current == *substring);
   for (substring++; *substring != '\0'; substring++) {
@@ -441,20 +440,13 @@ static bool isWhitespace(int x) {
 
 
 // Returns true if a nonspace found and false if the end has reached.
-template <class Iterator>
-static inline bool AdvanceToNonspace(Iterator* current, Iterator end) {
+static inline bool AdvanceToNonspace(const char** current,
+                                     const char* end) {
   while (*current != end) {
     if (!isWhitespace(**current)) return true;
     ++*current;
   }
   return false;
-}
-
-
-static bool isDigit(int x, int radix) {
-  return (x >= '0' && x <= '9' && x < '0' + radix)
-      || (radix > 10 && x >= 'a' && x < 'a' + radix - 10)
-      || (radix > 10 && x >= 'A' && x < 'A' + radix - 10);
 }
 
 
@@ -469,14 +461,43 @@ double StringToDoubleConverter::StringToIeee(
     int length,
     bool read_as_double,
     int* processed_characters_count) const {
+  // The longest form of simplified number is: "-<significant digits>.1eXXX\0".
+  const int kBufferSize = kMaxSignificantDigits + 10;
+  char buffer[kBufferSize];  // NOLINT: size is known at compile time.
+
   Iterator current = input;
   Iterator end = input + length;
+  int i = 0;
+  while (current != end) {
+    if (*current < 256) {
+      buffer[i++] = static_cast<char>(*current);
+    } else {
+      buffer[i++] = 255;  // invalid character.
+    }
+    ++current;
+  }
+  return StringToIeeeOnAsciiBuffer(
+    buffer, length, read_as_double, processed_characters_count);
+}
+
+double __attribute__((noinline))
+StringToDoubleConverter::StringToIeeeOnAsciiBuffer(
+    char* buffer,
+    int length,
+    bool read_as_double,
+    int* processed_characters_count) const {
+  const char* input = buffer;
+  const char* current = input;
+  const char* end = input + length;
+  // We are reusing the buffer that we get as input. Therefore the buffer_pos
+  // must always be behind the current (as we would otherwise overwrite unread
+  // data).
+  int buffer_pos = 0;
 
   *processed_characters_count = 0;
 
   ASSERT(flags_ == NO_FLAGS);
   const bool allow_trailing_junk = false;
-  const bool allow_leading_spaces = false;
   const bool allow_trailing_spaces = false;
   const bool allow_spaces_after_sign = false;
 
@@ -490,11 +511,6 @@ double StringToDoubleConverter::StringToIeee(
   // 5. Code before 'parsing_done' may rely on 'current != end'.
   if (current == end) return empty_string_value_;
 
-  // The longest form of simplified number is: "-<significant digits>.1eXXX\0".
-  const int kBufferSize = kMaxSignificantDigits + 10;
-  char buffer[kBufferSize];  // NOLINT: size is known at compile time.
-  int buffer_pos = 0;
-
   // Exponent will be adjusted if insignificant digits of the integer part
   // or insignificant leading zeros of the fractional part are dropped.
   int exponent = 0;
@@ -507,7 +523,7 @@ double StringToDoubleConverter::StringToIeee(
   if (*current == '+' || *current == '-') {
     sign = (*current == '-');
     ++current;
-    Iterator next_non_space = current;
+    const char* next_non_space = current;
     // Skip following spaces (if allowed).
     if (!AdvanceToNonspace(&next_non_space, end)) return junk_string_value_;
     if (!allow_spaces_after_sign && (current != next_non_space)) {
@@ -577,7 +593,7 @@ double StringToDoubleConverter::StringToIeee(
   // Copy significant digits of the integer part (if any) to the buffer.
   while (*current >= '0' && *current <= '9') {
     if (significant_digits < kMaxSignificantDigits) {
-      ASSERT(buffer_pos < kBufferSize);
+      ASSERT(buffer_pos < length);
       buffer[buffer_pos++] = static_cast<char>(*current);
       significant_digits++;
       // Will later check if it's an octal in the buffer.
@@ -617,7 +633,7 @@ double StringToDoubleConverter::StringToIeee(
     // We don't emit a '.', but adjust the exponent instead.
     while (*current >= '0' && *current <= '9') {
       if (significant_digits < kMaxSignificantDigits) {
-        ASSERT(buffer_pos < kBufferSize);
+        ASSERT(buffer_pos < length);
         buffer[buffer_pos++] = static_cast<char>(*current);
         significant_digits++;
         exponent--;
@@ -723,7 +739,7 @@ double StringToDoubleConverter::StringToIeee(
     }
   }
 
-  ASSERT(buffer_pos < kBufferSize);
+  ASSERT(buffer_pos <= length);
   buffer[buffer_pos] = '\0';
 
   double converted;
