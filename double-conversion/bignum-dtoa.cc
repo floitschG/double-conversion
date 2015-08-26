@@ -36,7 +36,7 @@ namespace double_conversion {
 
 static int NormalizedExponent(uint64_t significand, int exponent) {
   ASSERT(significand != 0);
-  while ((significand & Double::kHiddenBit) == 0) {
+  while ((significand & Single::kHiddenBit) == 0) {
     significand = significand << 1;
     exponent = exponent - 1;
   }
@@ -86,10 +86,10 @@ static void GenerateCountedDigits(int count, int* decimal_point,
                                   Vector<char>(buffer), int* length);
 
 
-void BignumDtoa(double v, BignumDtoaMode mode, int requested_digits,
+void BignumDtoa(float v, BignumDtoaMode mode, int requested_digits,
                 Vector<char> buffer, int* length, int* decimal_point) {
   ASSERT(v > 0);
-  ASSERT(!Double(v).IsSpecial());
+  ASSERT(!Single(v).IsSpecial());
   uint64_t significand;
   int exponent;
   bool lower_boundary_is_closer;
@@ -99,13 +99,8 @@ void BignumDtoa(double v, BignumDtoaMode mode, int requested_digits,
     significand = Single(f).Significand();
     exponent = Single(f).Exponent();
     lower_boundary_is_closer = Single(f).LowerBoundaryIsCloser();
-  } else {
-    significand = Double(v).Significand();
-    exponent = Double(v).Exponent();
-    lower_boundary_is_closer = Double(v).LowerBoundaryIsCloser();
   }
-  bool need_boundary_deltas =
-      (mode == BIGNUM_DTOA_SHORTEST || mode == BIGNUM_DTOA_SHORTEST_SINGLE);
+  bool need_boundary_deltas = (mode == BIGNUM_DTOA_SHORTEST_SINGLE);
 
   bool is_even = (significand & 1) == 0;
   int normalized_exponent = NormalizedExponent(significand, exponent);
