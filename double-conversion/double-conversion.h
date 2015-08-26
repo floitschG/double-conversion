@@ -154,8 +154,8 @@ class DoubleToStringConverter {
   // Returns true if the conversion succeeds. The conversion always succeeds
   // except when the input value is special and no infinity_symbol or
   // nan_symbol has been given to the constructor.
-  bool ToShortest(double value, StringBuilder* result_builder) const {
-    return ToShortestIeeeNumber(value, result_builder, SHORTEST);
+  bool ToShortest(float value, StringBuilder* result_builder) const {
+    return ToShortestIeeeNumber(value, result_builder, SHORTEST_SINGLE);
   }
 
   // Same as ToShortest, but for single-precision floats.
@@ -197,7 +197,7 @@ class DoubleToStringConverter {
   // The last two conditions imply that the result will never contain more than
   // 1 + kMaxFixedDigitsBeforePoint + 1 + kMaxFixedDigitsAfterPoint characters
   // (one additional character for the sign, and one for the decimal point).
-  bool ToFixed(double value,
+  bool ToFixed(float value,
                int requested_digits,
                StringBuilder* result_builder) const;
 
@@ -229,7 +229,7 @@ class DoubleToStringConverter {
   // kMaxExponentialDigits + 8 characters (the sign, the digit before the
   // decimal point, the decimal point, the exponent character, the
   // exponent's sign, and at most 3 exponent digits).
-  bool ToExponential(double value,
+  bool ToExponential(float value,
                      int requested_digits,
                      StringBuilder* result_builder) const;
 
@@ -267,7 +267,7 @@ class DoubleToStringConverter {
   // The last condition implies that the result will never contain more than
   // kMaxPrecisionDigits + 7 characters (the sign, the decimal point, the
   // exponent character, the exponent's sign, and at most 3 exponent digits).
-  bool ToPrecision(double value,
+  bool ToPrecision(float value,
                    int precision,
                    StringBuilder* result_builder) const;
 
@@ -275,8 +275,6 @@ class DoubleToStringConverter {
     // Produce the shortest correct representation.
     // For example the output of 0.299999999999999988897 is (the less accurate
     // but correct) 0.3.
-    SHORTEST,
-    // Same as SHORTEST, but for single-precision floats.
     SHORTEST_SINGLE,
     // Produce a fixed number of digits after the decimal point.
     // For instance fixed(0.1, 4) becomes 0.1000
@@ -332,7 +330,7 @@ class DoubleToStringConverter {
   // terminating null-character when computing the maximal output size.
   // The given length is only used in debug mode to ensure the buffer is big
   // enough.
-  static void DoubleToAscii(double v,
+  static void DoubleToAscii(float v,
                             DtoaMode mode,
                             int requested_digits,
                             char* buffer,
@@ -343,7 +341,7 @@ class DoubleToStringConverter {
 
  private:
   // Implementation for ToShortest and ToShortestSingle.
-  bool ToShortestIeeeNumber(double value,
+  bool ToShortestIeeeNumber(float value,
                             StringBuilder* result_builder,
                             DtoaMode mode) const;
 
@@ -351,7 +349,7 @@ class DoubleToStringConverter {
   // corresponding string using the configured infinity/nan-symbol.
   // If either of them is NULL or the value is not special then the
   // function returns false.
-  bool HandleSpecialValues(double value, StringBuilder* result_builder) const;
+  bool HandleSpecialValues(float value, StringBuilder* result_builder) const;
   // Constructs an exponential representation (i.e. 1.234e56).
   // The given exponent assumes a decimal point after the first decimal digit.
   void CreateExponentialRepresentation(const char* decimal_digits,
@@ -485,8 +483,8 @@ class StringToDoubleConverter {
   //    StringToDouble("-infinity") -> NaN  // junk_string_value.
   //    StringToDouble("NaN") -> NaN  // junk_string_value.
   StringToDoubleConverter(int flags,
-                          double empty_string_value,
-                          double junk_string_value,
+                          float empty_string_value,
+                          float junk_string_value,
                           const char* infinity_symbol,
                           const char* nan_symbol)
       : flags_(flags),
@@ -501,12 +499,12 @@ class StringToDoubleConverter {
   // of characters that have been processed to read the number.
   // Spaces than are processed with ALLOW_{LEADING|TRAILING}_SPACES are included
   // in the 'processed_characters_count'. Trailing junk is never included.
-  double StringToDouble(const char* buffer,
+  float StringToDouble(const char* buffer,
                         int length,
                         int* processed_characters_count) const;
 
   // Same as StringToDouble above but for 16 bit characters.
-  double StringToDouble(const uc16* buffer,
+  float StringToDouble(const uc16* buffer,
                         int length,
                         int* processed_characters_count) const;
 
@@ -524,13 +522,13 @@ class StringToDoubleConverter {
 
  private:
   const int flags_;
-  const double empty_string_value_;
-  const double junk_string_value_;
+  const float empty_string_value_;
+  const float junk_string_value_;
   const char* const infinity_symbol_;
   const char* const nan_symbol_;
 
   template <class Iterator>
-  double StringToIeee(Iterator start_pointer,
+  float StringToIeee(Iterator start_pointer,
                       int length,
                       bool read_as_double,
                       int* processed_characters_count) const;
