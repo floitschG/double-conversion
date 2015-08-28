@@ -730,7 +730,7 @@ float StringToDoubleConverter::StringToIeeeOnAsciiBuffer(
       remaining_exponent = -remaining_exponent;
     }
     int divisor = 1;
-    while (divisor * 10 < remaining_exponent) {
+    while (divisor * 10 <= remaining_exponent) {
       divisor *= 10;
     }
     while (divisor != 0) {
