@@ -1765,6 +1765,13 @@ TEST(StringToDoubleVarious) {
   CHECK_EQ(0.0, StrToD("", flags, 0.0, &processed, &all_used));
   CHECK(all_used);
 
+  CHECK_EQ(5e-324, StrToD("5e-324", flags, 0.0, &processed, &all_used));
+  CHECK(all_used);
+
+  CHECK_EQ(0.49999999999999994,
+           StrToD("0.49999999999999994", flags, 0.0, &processed, &all_used));
+  CHECK(all_used);
+
   CHECK_EQ(1.0, StrToD("", flags, 1.0, &processed, &all_used));
   CHECK(all_used);
 
