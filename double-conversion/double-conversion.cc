@@ -720,6 +720,8 @@ float StringToDoubleConverter::StringToIeeeOnAsciiBuffer(
     exponent--;
   }
 
+  ASSERT(buffer_pos <= length);
+
   if (exponent != 0) {
     buffer[buffer_pos++] = 'e';
     int remaining_exponent = exponent;
@@ -738,7 +740,6 @@ float StringToDoubleConverter::StringToIeeeOnAsciiBuffer(
     }
   }
 
-  ASSERT(buffer_pos <= length);
   buffer[buffer_pos] = '\0';
 
   float converted;
