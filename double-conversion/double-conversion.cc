@@ -461,9 +461,11 @@ double StringToDoubleConverter::StringToIeee(
     int length,
     bool read_as_double,
     int* processed_characters_count) const {
-  // The longest form of simplified number is: "-<significant digits>.1eXXX\0".
-  const int kBufferSize = kMaxSignificantDigits + 10;
-  char buffer[kBufferSize];  // NOLINT: size is known at compile time.
+  // Most of the time StringToIeeeOnAsciiBuffer will shrink the input string
+  // by removing insignificant digits, but the output can grow slightly.
+  // For example "0.1" becomes "1e-1". Adding 10 characters is enough to deal
+  // with that.
+  char* buffer = reinterpret_cast<char*>(malloc(length + 10));
 
   Iterator current = input;
   Iterator end = input + length;
@@ -476,8 +478,10 @@ double StringToDoubleConverter::StringToIeee(
     }
     ++current;
   }
-  return StringToIeeeOnAsciiBuffer(
-    buffer, length, read_as_double, processed_characters_count);
+  double result = StringToIeeeOnAsciiBuffer(
+      buffer, length, read_as_double, processed_characters_count);
+  free(buffer);
+  return result;
 }
 
 double __attribute__((noinline))
